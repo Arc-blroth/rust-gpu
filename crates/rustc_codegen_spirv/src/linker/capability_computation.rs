@@ -1,4 +1,4 @@
-use rspirv::dr::Module;
+use rspirv::dr::{Instruction, Module, Operand};
 use rspirv::spirv::{Capability, Op};
 use std::collections::HashSet;
 
@@ -61,6 +61,31 @@ fn remove_capabilities(module: &mut Module, set: &HashSet<Capability>) {
 }
 
 pub fn remove_extra_extensions(module: &mut Module) {
+    // Based on the capabilities above, we first need to
+    // add a few extensions.
+    let mut used_extensions = HashSet::new();
+    for inst in module.all_inst_iter() {
+        if inst.class.opcode == Op::Capability {
+            match inst.operands[0].unwrap_capability() {
+                Capability::Int8 => {
+                    used_extensions.insert("SPV_KHR_8bit_storage".to_string());
+                }
+                Capability::Int16 => {
+                    used_extensions.insert("SPV_KHR_16bit_storage".to_string());
+                }
+                _ => {}
+            }
+        }
+    }
+    for extension in &used_extensions {
+        module.capabilities.push(Instruction::new(
+            Op::Extension,
+            None,
+            None,
+            vec![Operand::LiteralString(extension.clone())],
+        ))
+    }
+
     // TODO: Make this more generalized once this gets more advanced.
     let has_intel_integer_cap = module.capabilities.iter().any(|inst| {
         inst.class.opcode == Op::Capability
