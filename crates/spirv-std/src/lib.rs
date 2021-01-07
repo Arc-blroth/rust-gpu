@@ -1,7 +1,14 @@
 #![no_std]
 #![cfg_attr(
     target_arch = "spirv",
-    feature(asm, register_attr, repr_simd, core_intrinsics, lang_items),
+    feature(
+        asm,
+        register_attr,
+        repr_simd,
+        core_intrinsics,
+        lang_items
+    ),
+    allow(incomplete_features),
     register_attr(spirv)
 )]
 // BEGIN - Embark standard lints v0.2.
@@ -51,7 +58,8 @@
 )]
 // END - Embark standard lints v0.2
 // crate-specific exceptions:
-#![allow(unsafe_code)] // still quite a bit needed
+#![allow(unsafe_code, incomplete_features)] // still quite a bit needed
+#![feature(const_generics)] // still quite a bit needed
 
 #[macro_use]
 #[cfg(not(target_arch = "spirv"))]
@@ -65,9 +73,9 @@ pub(crate) mod sealed;
 pub mod storage_class;
 mod textures;
 pub mod vector;
+pub mod image;
 
 pub use num_traits;
-pub use textures::*;
 
 /// Calls the `OpDemoteToHelperInvocationEXT` instruction, which corresponds to discard() in HLSL
 #[spirv_std_macros::gpu_only]
