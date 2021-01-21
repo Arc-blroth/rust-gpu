@@ -1,5 +1,5 @@
 use super::CodegenCx;
-use crate::builder_spirv::SpirvValue;
+use crate::builder_spirv::{SpirvValue, SpirvValueKind};
 use crate::spirv_type::SpirvType;
 use crate::symbols::{parse_attrs, Entry, SpirvAttribute};
 use rspirv::dr::Operand;
@@ -143,8 +143,8 @@ impl<'tcx> CodegenCx<'tcx> {
         hir_param: &Param<'tcx>,
         decoration_locations: &mut HashMap<StorageClass, u32>,
     ) -> (Word, StorageClass) {
-        let storage_class = match self.lookup_type(arg) {
-            SpirvType::Pointer { storage_class, .. } => storage_class,
+        let (storage_class, pointee) = match self.lookup_type(arg) {
+            SpirvType::Pointer { storage_class, pointee } => (storage_class, pointee),
             other => self.tcx.sess.fatal(&format!(
                 "Invalid entry arg type {}",
                 other.debug(arg, self)
@@ -205,7 +205,12 @@ impl<'tcx> CodegenCx<'tcx> {
                 Decoration::Location,
                 std::iter::once(Operand::LiteralInt32(*location)),
             );
-            *location += 1;
+            // Arrays take up multiple locations
+            *location += if let SpirvType::Array { count, ..} = self.lookup_type(pointee) {
+                self.builder.lookup_const_u64(count).expect("Array type has invalid count value") as u32
+            } else {
+                1
+            }
         }
         (variable, storage_class)
     }
