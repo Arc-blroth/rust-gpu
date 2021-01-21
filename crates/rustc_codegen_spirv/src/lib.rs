@@ -88,6 +88,7 @@ mod decorations;
 mod link;
 mod linker;
 mod spirv_type;
+mod spirv_type_constraints;
 mod symbols;
 
 use builder::Builder;
@@ -96,7 +97,9 @@ pub use rspirv;
 use rspirv::binary::Assemble;
 use rustc_ast::expand::allocator::AllocatorKind;
 use rustc_codegen_ssa::back::lto::{LtoModuleCodegen, SerializedModule, ThinModule};
-use rustc_codegen_ssa::back::write::{CodegenContext, FatLTOInput, ModuleConfig, OngoingCodegen};
+use rustc_codegen_ssa::back::write::{
+    CodegenContext, FatLTOInput, ModuleConfig, OngoingCodegen, TargetMachineFactoryConfig,
+};
 use rustc_codegen_ssa::base::maybe_create_entry_wrapper;
 use rustc_codegen_ssa::mono_item::MonoItemExt;
 use rustc_codegen_ssa::traits::{
@@ -443,6 +446,7 @@ impl WriteBackendMethods for SpirvCodegenBackend {
             name: module.name,
             kind: module.kind,
             object: Some(path),
+            dwarf_object: None,
             bytecode: None,
         })
     }
@@ -557,8 +561,9 @@ impl ExtraBackendMethods for SpirvCodegenBackend {
         &self,
         _: &Session,
         _: OptLevel,
-    ) -> Arc<dyn Fn() -> Result<Self::TargetMachine, String> + Send + Sync + 'static> {
-        Arc::new(|| Ok(()))
+    ) -> Arc<(dyn Fn(TargetMachineFactoryConfig) -> Result<(), String> + Send + Sync + 'static)>
+    {
+        Arc::new(|_| Ok(()))
     }
 
     fn target_cpu<'b>(&self, _: &'b Session) -> &'b str {

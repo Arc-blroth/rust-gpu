@@ -43,12 +43,33 @@
 #[macro_use]
 pub extern crate spirv_std_macros;
 
+pub mod derivative;
 pub mod storage_class;
 mod textures;
 
 pub use glam;
 pub use num_traits;
 pub use textures::*;
+
+/// Calls the `OpDemoteToHelperInvocationEXT` instruction, which corresponds to discard() in HLSL
+pub fn demote_to_helper_invocation() {
+    #[cfg(target_arch = "spirv")]
+    unsafe {
+        asm!(
+            "OpExtension \"SPV_EXT_demote_to_helper_invocation\"",
+            "OpCapability DemoteToHelperInvocationEXT",
+            "OpDemoteToHelperInvocationEXT"
+        );
+    }
+}
+
+/// Calls the `OpKill` instruction, which corresponds to discard() in GLSL
+pub fn discard() {
+    #[cfg(target_arch = "spirv")]
+    unsafe {
+        asm!("OpKill", "%unused = OpLabel");
+    }
+}
 
 #[cfg(all(not(test), target_arch = "spirv"))]
 #[panic_handler]
@@ -59,68 +80,6 @@ fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
 #[cfg(all(not(test), target_arch = "spirv"))]
 #[lang = "eh_personality"]
 extern "C" fn rust_eh_personality() {}
-
-pub trait Derivative {
-    fn ddx(self) -> Self;
-    fn ddx_fine(self) -> Self;
-    fn ddx_coarse(self) -> Self;
-    fn ddy(self) -> Self;
-    fn ddy_fine(self) -> Self;
-    fn ddy_coarse(self) -> Self;
-    fn fwidth(self) -> Self;
-    fn fwidth_fine(self) -> Self;
-    fn fwidth_coarse(self) -> Self;
-}
-
-#[cfg(target_arch = "spirv")]
-macro_rules! deriv_caps {
-    (true) => {
-        asm!("OpCapability DerivativeControl")
-    };
-    (false) => {};
-}
-
-macro_rules! deriv_fn {
-    ($name:ident, $inst:ident, $needs_caps:tt) => {
-        fn $name(self) -> Self {
-            #[cfg(not(target_arch = "spirv"))]
-            panic!(concat!(stringify!($name), " is not supported on the CPU"));
-            #[cfg(target_arch = "spirv")]
-            unsafe {
-                let o;
-                deriv_caps!($needs_caps);
-                asm!(
-                    concat!("{1} = ", stringify!($inst), " typeof{0} {0}"),
-                    in(reg) self,
-                    out(reg) o,
-                );
-                o
-            }
-        }
-    };
-}
-macro_rules! deriv_impl {
-    ($ty:ty) => {
-        impl Derivative for $ty {
-            deriv_fn!(ddx, OpDPdx, false);
-            deriv_fn!(ddx_fine, OpDPdxFine, true);
-            deriv_fn!(ddx_coarse, OpDPdxCoarse, true);
-            deriv_fn!(ddy, OpDPdy, false);
-            deriv_fn!(ddy_fine, OpDPdyFine, true);
-            deriv_fn!(ddy_coarse, OpDPdyCoarse, true);
-            deriv_fn!(fwidth, OpFwidth, false);
-            deriv_fn!(fwidth_fine, OpFwidthFine, true);
-            deriv_fn!(fwidth_coarse, OpFwidthCoarse, true);
-        }
-    };
-}
-
-// "must be a scalar or vector of floating-point type. The component width must be 32 bits."
-deriv_impl!(f32);
-// TODO: Fix rustc to support these
-// deriv_impl!(glam::Vec2);
-// deriv_impl!(glam::Vec3);
-// deriv_impl!(glam::Vec4);
 
 /// libcore requires a few external symbols to be defined:
 /// <https://github.com/rust-lang/rust/blob/c2bc344eb23d8c1d18e803b3f1e631cf99926fbb/library/core/src/lib.rs#L23-L27>
