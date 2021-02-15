@@ -1,5 +1,5 @@
 use rspirv::dr::{Instruction, Module, Operand};
-use rspirv::spirv::{Capability, Op};
+use rspirv::spirv::{Capability, Dim, Op};
 use std::collections::HashSet;
 
 pub fn remove_extra_capabilities(module: &mut Module) {
@@ -13,6 +13,7 @@ pub fn remove_extra_capabilities(module: &mut Module) {
         Capability::IntegerFunctions2INTEL,
         Capability::DemoteToHelperInvocationEXT,
         Capability::DerivativeControl,
+        Capability::InputAttachment,
     ]
     .iter()
     .copied()
@@ -47,6 +48,12 @@ fn used_capabilities(module: &Module) -> HashSet<Capability> {
                 }
                 64 => {
                     set.insert(Capability::Float64);
+                }
+                _ => {}
+            },
+            Op::TypeImage => match inst.operands[1].unwrap_dim() {
+                Dim::DimSubpassData => {
+                    set.insert(Capability::InputAttachment);
                 }
                 _ => {}
             },

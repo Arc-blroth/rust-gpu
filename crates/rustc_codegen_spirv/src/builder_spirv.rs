@@ -183,6 +183,7 @@ impl BuilderSpirv {
         builder.capability(Capability::Int16);
         builder.capability(Capability::Int64);
         builder.capability(Capability::Float64);
+        builder.capability(Capability::InputAttachment);
         if kernel_mode {
             builder.capability(Capability::Addresses);
             builder.memory_model(AddressingModel::Physical32, MemoryModel::OpenCL);
