@@ -1,5 +1,7 @@
 use glam::{Vec2, Vec3A, Vec4};
 
+use crate::{integer::Integer, vector::Vector};
+
 #[allow(unused_attributes)]
 #[spirv(sampler)]
 #[derive(Copy, Clone)]
@@ -23,14 +25,8 @@ pub struct Image2d {
 }
 
 impl Image2d {
+    #[spirv_std_macros::gpu_only]
     pub fn sample(&self, sampler: Sampler, coord: Vec2) -> Vec4 {
-        #[cfg(not(target_arch = "spirv"))]
-        {
-            let _ = sampler;
-            let _ = coord;
-            panic!("Image sampling not supported on CPU");
-        }
-        #[cfg(target_arch = "spirv")]
         unsafe {
             let mut result = Default::default();
             asm!(
@@ -55,6 +51,69 @@ impl Image2d {
     // sampled_type is hardcoded to f32 for now
     dim = "Dim2D",
     depth = 0,
+    arrayed = 0,
+    multisampled = 0,
+    sampled = 2,
+    image_format = "Unknown"
+))]
+#[derive(Copy, Clone)]
+pub struct StorageImage2d {
+    _x: u32,
+}
+
+impl StorageImage2d {
+    /// Read a texel from an image without a sampler.
+    #[spirv_std_macros::gpu_only]
+    pub fn read<I, V, V2>(&self, coordinate: V) -> V2
+    where
+        I: Integer,
+        V: Vector<I>,
+        V2: Vector<f32>,
+    {
+        let mut result = V2::default();
+
+        unsafe {
+            asm! {
+                "%image = OpLoad _ {this}",
+                "%coordinate = OpLoad _ {coordinate}",
+                "%result = OpImageRead typeof*{result} %image %coordinate",
+                "OpStore {result} %result",
+                this = in(reg) self,
+                coordinate = in(reg) &coordinate,
+                result = in(reg) &mut result,
+            }
+        }
+
+        result
+    }
+
+    /// Write a texel to an image without a sampler.
+    #[spirv_std_macros::gpu_only]
+    pub fn write<I, V, V2>(&self, coordinate: V, texels: V2)
+    where
+        I: Integer,
+        V: Vector<I>,
+        V2: Vector<f32>,
+    {
+        unsafe {
+            asm! {
+                "%image = OpLoad _ {this}",
+                "%coordinate = OpLoad _ {coordinate}",
+                "%texels = OpLoad _ {texels}",
+                "OpImageWrite %image %coordinate %texels",
+                this = in(reg) self,
+                coordinate = in(reg) &coordinate,
+                texels = in(reg) &texels,
+            }
+        }
+    }
+}
+
+#[allow(unused_attributes)]
+#[spirv(image(
+    // sampled_type is hardcoded to f32 for now
+    dim = "Dim2D",
+    depth = 0,
     arrayed = 1,
     multisampled = 0,
     sampled = 1,
@@ -66,14 +125,8 @@ pub struct Image2dArray {
 }
 
 impl Image2dArray {
+    #[spirv_std_macros::gpu_only]
     pub fn sample(&self, sampler: Sampler, coord: Vec3A) -> Vec4 {
-        #[cfg(not(target_arch = "spirv"))]
-        {
-            let _ = sampler;
-            let _ = coord;
-            panic!("Image sampling not supported on CPU");
-        }
-        #[cfg(target_arch = "spirv")]
         unsafe {
             let mut result = Default::default();
             asm!(
@@ -101,13 +154,8 @@ pub struct SampledImage<I> {
 }
 
 impl SampledImage<Image2d> {
+    #[spirv_std_macros::gpu_only]
     pub fn sample(&self, coord: Vec2) -> Vec4 {
-        #[cfg(not(target_arch = "spirv"))]
-        {
-            let _ = coord;
-            panic!("Image sampling not supported on CPU");
-        }
-        #[cfg(target_arch = "spirv")]
         unsafe {
             let mut result = Default::default();
             asm!(

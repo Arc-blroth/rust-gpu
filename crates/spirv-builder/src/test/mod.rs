@@ -42,6 +42,10 @@ edition = "2018"
 [lib]
 crate-type = ["dylib"]
 
+[profile.dev]
+overflow-checks = false
+debug-assertions = false
+
 [dependencies]
 spirv-std = { path = "../../crates/spirv-std" }
 
@@ -74,6 +78,7 @@ fn build(src: &str) -> PathBuf {
     let project = setup(src).expect("Failed to set up project");
     crate::SpirvBuilder::new(&project)
         .print_metadata(false)
+        .release(false)
         .build()
         .expect("Failed to build test")
 }
@@ -95,17 +100,11 @@ fn val(src: &str) {
 /// stricter Vulkan validation (`vulkan1.2` specifically), which may produce
 /// additional errors (such as missing Vulkan-specific decorations).
 fn val_vulkan(src: &str) {
-    use rustc_codegen_spirv::spirv_tools::{
-        binary::to_binary,
-        val::{self, Validator},
-        TargetEnv,
-    };
-
-    let validator = val::create(Some(TargetEnv::Vulkan_1_2));
+    use rustc_codegen_spirv::{spirv_tools_validate as validate, SpirvToolsTargetEnv as TargetEnv};
 
     let _lock = global_lock();
     let bytes = std::fs::read(build(src)).unwrap();
-    if let Err(e) = validator.validate(to_binary(&bytes).unwrap(), None) {
+    if let Err(e) = validate(Some(TargetEnv::Vulkan_1_2), &bytes, None) {
         panic!("Vulkan validation failed:\n{}", e.to_string());
     }
 }
@@ -149,6 +148,19 @@ fn dis_fn(src: &str, func: &str, expect: &str) {
     compact_ids(&mut func);
     use rspirv::binary::Disassemble;
     assert_str_eq(expect, &func.disassemble())
+}
+
+fn dis_globals(src: &str, expect: &str) {
+    let _lock = global_lock();
+    let module = read_module(&build(src)).unwrap();
+
+    use rspirv::binary::Disassemble;
+    let dis = module
+        .global_inst_iter()
+        .map(|inst| inst.disassemble())
+        .collect::<Vec<String>>()
+        .join("\n");
+    assert_str_eq(expect, &dis);
 }
 
 fn compact_ids(module: &mut rspirv::dr::Function) -> u32 {
