@@ -1,0 +1,22 @@
+error: pointer has non-null integer address
+  |
+  = note: Stack:
+          allocate_const_scalar_pointer::main
+          Unnamed function ID %22
+
+error: No OpEntryPoint instruction was found. This is only allowed if the Linkage capability is being used.
+  |
+  = note: module "./target/compiletest-results/allocate_const_scalar_pointer.stage-id"
+
+warning: internal error
+  |
+  = note: spirv-opt failed, leaving as unoptimized
+  = note: module "./target/compiletest-results/allocate_const_scalar_pointer.stage-id"
+
+error: invalid binary:0:0 - No OpEntryPoint instruction was found. This is only allowed if the Linkage capability is being used.
+  |
+  = note: spirv-val failed
+  = note: module "./target/compiletest-results/allocate_const_scalar_pointer.stage-id"
+
+error: aborting due to 3 previous errors; 1 warning emitted
+

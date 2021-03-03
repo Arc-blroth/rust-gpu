@@ -1,4 +1,4 @@
-use super::{dis_fn, dis_globals, val, val_vulkan};
+use super::{dis_fn, dis_globals, val};
 use std::ffi::OsStr;
 
 struct SetEnvVar<'a> {
@@ -17,15 +17,6 @@ impl<'a> Drop for SetEnvVar<'a> {
     fn drop(&mut self) {
         std::env::remove_var(self.k)
     }
-}
-
-#[test]
-fn hello_world() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main() {
-}
-"#);
 }
 
 #[test]
@@ -210,127 +201,6 @@ OpDecorate %4 Binding 0
 }
 
 #[test]
-fn asm_const_arg() {
-    val(r#"
-fn asm() {
-    unsafe {
-        const N: usize = 3;
-        asm!(
-            "%int = OpTypeInt 32 0",
-            "%type = OpTypeVector %int {len}",
-            len = const N,
-        );
-    }
-}
-#[spirv(fragment)]
-pub fn main() {
-    asm();
-}
-"#);
-}
-
-#[test]
-fn logical_and() {
-    val(r#"
-fn f(x: bool, y: bool) -> bool {
-    x && y
-}
-#[spirv(fragment)]
-pub fn main() {
-    f(false, true);
-}"#);
-}
-
-#[test]
-fn panic() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main() {
-    panic!("aaa");
-}
-"#);
-}
-
-#[test]
-fn panic_builtin() {
-    val(r#"
-fn int_div(x: usize) -> usize {
-    1 / x
-}
-
-#[spirv(fragment)]
-pub fn main() {
-    int_div(0);
-}
-"#);
-}
-
-#[test]
-fn panic_builtin_bounds_check() {
-    val(r#"
-fn array_bounds_check(x: [u32; 4], i: usize) -> u32 {
-    x[i]
-}
-
-#[spirv(fragment)]
-pub fn main() {
-    array_bounds_check([0, 1, 2, 3], 5);
-}
-"#);
-}
-
-// NOTE(eddyb) this won't pass Vulkan validation (see `push_constant_vulkan`),
-// but should still pass the basline SPIR-V validation.
-#[test]
-fn push_constant() {
-    val(r#"
-#[derive(Copy, Clone)]
-pub struct ShaderConstants {
-    pub width: u32,
-    pub height: u32,
-    pub time: f32,
-}
-
-#[spirv(fragment)]
-pub fn main(constants: PushConstant<ShaderConstants>) {
-    let _constants = *constants;
-}
-"#);
-}
-
-// NOTE(eddyb) we specifically run Vulkan validation here, as the default
-// validation rules are more lax and don't require a `Block` decoration
-// (`#[spirv(block)]` here) on `struct ShaderConstants`.
-#[test]
-fn push_constant_vulkan() {
-    val_vulkan(
-        r#"
-#[derive(Copy, Clone)]
-#[spirv(block)]
-pub struct ShaderConstants {
-    pub width: u32,
-    pub height: u32,
-    pub time: f32,
-}
-
-#[spirv(fragment)]
-pub fn main(constants: PushConstant<ShaderConstants>) {
-    let _constants = *constants;
-}
-"#,
-    );
-}
-
-#[test]
-fn infinite_loop() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main() {
-    loop {}
-}"#);
-}
-
-#[test]
 fn unroll_loops() {
     dis_fn(
         // FIXME(eddyb) use `for _ in 0..10` here when that works.
@@ -388,108 +258,6 @@ OpBranch %8
 OpUnreachable
 OpFunctionEnd"#,
     );
-}
-
-#[test]
-fn signum() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main(i: Input<f32>, mut o: Output<f32>) {
-    *o = i.signum();
-}"#);
-}
-
-#[test]
-// Doesn't work, only worked before because I think it got optimized away before hitting the
-// backend.
-#[ignore]
-fn allocate_const_scalar_pointer() {
-    val(r#"
-use core::ptr::Unique;
-const POINTER: Unique<[u8;4]> = Unique::<[u8; 4]>::dangling();
-
-#[spirv(fragment)]
-pub fn main() {
-    let _pointer = POINTER;
-}"#);
-}
-
-#[test]
-fn allocate_vec_like_pointer() {
-    val(r#"
-use core::ptr::Unique;
-const VEC_LIKE: (Unique<usize>, usize, usize) = (Unique::<usize>::dangling(), 0, 0);
-
-pub fn assign_vec_like() {
-    let _vec_like = VEC_LIKE;
-}
-#[spirv(fragment)]
-pub fn main() {}"#);
-}
-
-#[test]
-fn allocate_null_pointer() {
-    val(r#"
-use core::ptr::null;
-const NULL_PTR: *const i32 = null();
-
-#[spirv(fragment)]
-pub fn main() {
-    let _null_ptr = NULL_PTR;
-}"#);
-}
-
-#[test]
-fn create_uninitialized_memory() {
-    val(r#"
-use core::mem::MaybeUninit;
-const MAYBEI32: MaybeUninit<&i32> = MaybeUninit::<&i32>::uninit();
-
-pub fn create_uninit_and_write() {
-    let mut maybei32 = MAYBEI32;
-    unsafe { maybei32.as_mut_ptr().write(&0); }
-    let _maybei32 = unsafe { maybei32.assume_init() };
-}
-
-#[spirv(fragment)]
-pub fn main() {}"#);
-}
-
-#[test]
-fn vector_extract_dynamic() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main() {
-    let vector = glam::Vec2::new(1.0, 2.0);
-    let element = unsafe { spirv_std::arch::vector_extract_dynamic(vector, 1) };
-    assert!(2.0 == element);
-}
-"#);
-}
-
-#[test]
-fn vector_insert_dynamic() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main() {
-    let vector = glam::Vec2::new(1.0, 2.0);
-    let expected = glam::Vec2::new(1.0, 3.0);
-    let new_vector = unsafe { spirv_std::arch::vector_insert_dynamic(vector, 1, 3.0) };
-    assert!(new_vector == expected);
-}
-"#);
-}
-
-#[test]
-fn mat3_vec3_multiply() {
-    val(r#"
-#[spirv(fragment)]
-pub fn main(input: Input<glam::Mat3>, mut output: Output<glam::Vec3>) {
-    let input = *input;
-    let vector = input * glam::Vec3::new(1.0, 2.0, 3.0);
-    *output = vector;
-}
-"#);
 }
 
 #[test]
