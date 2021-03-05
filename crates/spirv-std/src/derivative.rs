@@ -46,7 +46,8 @@ pub trait Derivative {
     fn fwidth_coarse(self) -> Self;
 }
 
-#[cfg(target_arch = "spirv")]
+#[macro_export]
+#[doc(hidden)]
 macro_rules! deriv_caps {
     (true) => {
         asm!("OpCapability DerivativeControl")
@@ -54,13 +55,15 @@ macro_rules! deriv_caps {
     (false) => {};
 }
 
+#[macro_export]
+#[doc(hidden)]
 macro_rules! deriv_fn {
     ($name:ident, $inst:ident, $needs_caps:tt) => {
         #[spirv_std_macros::gpu_only]
         fn $name(self) -> Self {
             unsafe {
                 let mut o = Default::default();
-                deriv_caps!($needs_caps);
+                $crate::deriv_caps!($needs_caps);
                 asm!(
                     "%input = OpLoad _ {0}",
                     concat!("%result = ", stringify!($inst), " _ %input"),
@@ -74,25 +77,23 @@ macro_rules! deriv_fn {
     };
 }
 
+#[macro_export]
+#[doc(hidden)]
 macro_rules! deriv_impl {
     ($ty:ty) => {
-        impl Derivative for $ty {
-            deriv_fn!(ddx, OpDPdx, false);
-            deriv_fn!(ddx_fine, OpDPdxFine, true);
-            deriv_fn!(ddx_coarse, OpDPdxCoarse, true);
-            deriv_fn!(ddy, OpDPdy, false);
-            deriv_fn!(ddy_fine, OpDPdyFine, true);
-            deriv_fn!(ddy_coarse, OpDPdyCoarse, true);
-            deriv_fn!(fwidth, OpFwidth, false);
-            deriv_fn!(fwidth_fine, OpFwidthFine, true);
-            deriv_fn!(fwidth_coarse, OpFwidthCoarse, true);
+        impl $crate::derivative::Derivative for $ty {
+            $crate::deriv_fn!(ddx, OpDPdx, false);
+            $crate::deriv_fn!(ddx_fine, OpDPdxFine, true);
+            $crate::deriv_fn!(ddx_coarse, OpDPdxCoarse, true);
+            $crate::deriv_fn!(ddy, OpDPdy, false);
+            $crate::deriv_fn!(ddy_fine, OpDPdyFine, true);
+            $crate::deriv_fn!(ddy_coarse, OpDPdyCoarse, true);
+            $crate::deriv_fn!(fwidth, OpFwidth, false);
+            $crate::deriv_fn!(fwidth_fine, OpFwidthFine, true);
+            $crate::deriv_fn!(fwidth_coarse, OpFwidthCoarse, true);
         }
     };
 }
 
 // "must be a scalar or vector of floating-point type. The component width must be 32 bits."
 deriv_impl!(f32);
-deriv_impl!(glam::Vec2);
-deriv_impl!(glam::Vec3);
-deriv_impl!(glam::Vec3A);
-deriv_impl!(glam::Vec4);

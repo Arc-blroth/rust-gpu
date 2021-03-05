@@ -53,9 +53,9 @@
 // crate-specific exceptions:
 #![allow(unsafe_code)] // still quite a bit needed
 
-#[cfg(not(target_arch = "spirv"))]
 #[macro_use]
-pub extern crate spirv_std_macros;
+#[cfg(not(target_arch = "spirv"))]
+pub extern crate spirv_std_macros as macros;
 
 pub mod arch;
 pub mod derivative;
@@ -66,7 +66,6 @@ pub mod storage_class;
 mod textures;
 pub mod vector;
 
-pub use glam;
 pub use num_traits;
 pub use textures::*;
 
