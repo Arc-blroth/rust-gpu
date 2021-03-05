@@ -3,6 +3,7 @@ pub trait Scalar: Copy + Default + crate::sealed::Sealed {}
 
 impl Scalar for bool {}
 impl Scalar for f32 {}
+impl Scalar for f64 {}
 impl Scalar for u8 {}
 impl Scalar for u16 {}
 impl Scalar for u32 {}
