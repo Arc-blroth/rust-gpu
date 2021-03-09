@@ -2,12 +2,12 @@
 
 mod params;
 
-use glam::Vec4;
-
 pub use params::{
     AccessQualifier, Arrayed, Dimensionality, ImageCoordinate, ImageDepth, ImageFormat,
     Multisampled, Sampled,
 };
+
+use crate::vector::Vector;
 
 macro_rules! basic_image_type {
     ($($(#[$($meta:meta)+])* $dim:path => $name:ident),+ $(,)?) => {
@@ -67,15 +67,8 @@ impl<
         const ACCESS_QUALIFIER: Option<AccessQualifier>,
     > Image<DIM, DEPTH, ARRAYED, MULTISAMPLED, SAMPLED, FORMAT, ACCESS_QUALIFIER>
 {
-    pub fn sample(&self, sampler: Sampler, coord: impl ImageCoordinate<{ DIM }>) -> Vec4 {
-        #[cfg(not(target_arch = "spirv"))]
-        {
-            let _ = sampler;
-            let _ = coord;
-            panic!("Image sampling not supported on CPU");
-        }
-
-        #[cfg(target_arch = "spirv")]
+    #[spirv_std_macros::gpu_only]
+    pub fn sample<V: Vector<f32, 4>>(&self, sampler: Sampler, coord: impl ImageCoordinate<f32, { DIM }>) -> V {
         unsafe {
             let mut result = Default::default();
             asm!(
@@ -124,25 +117,18 @@ impl<
         const ACCESS_QUALIFIER: Option<AccessQualifier>,
     > SampledImage<Image<DIM, DEPTH, ARRAYED, MULTISAMPLED, SAMPLED, FORMAT, ACCESS_QUALIFIER>>
 {
-    pub fn sample(&self, coord: impl ImageCoordinate<{ DIM }>) -> Vec4 {
-        #[cfg(not(target_arch = "spirv"))]
-        {
-            let _ = coord;
-            panic!("Image sampling not supported on CPU");
-        }
-        #[cfg(target_arch = "spirv")]
-        unsafe {
-            let mut result = Default::default();
-            asm!(
-                "%sampledImage = OpLoad typeof*{1} {1}",
-                "%coord = OpLoad typeof*{2} {2}",
-                "%result = OpImageSampleImplicitLod typeof*{0} %sampledImage %coord",
-                "OpStore {0} %result",
-                in(reg) &mut result,
-                in(reg) self,
-                in(reg) &coord
-            );
-            result
-        }
+    #[spirv_std_macros::gpu_only]
+    pub unsafe fn sample<V: Vector<f32, 4>>(&self, coord: impl ImageCoordinate<f32, { DIM }>) -> V {
+        let mut result = Default::default();
+        asm!(
+            "%sampledImage = OpLoad typeof*{1} {1}",
+            "%coord = OpLoad typeof*{2} {2}",
+            "%result = OpImageSampleImplicitLod typeof*{0} %sampledImage %coord",
+            "OpStore {0} %result",
+            in(reg) &mut result,
+            in(reg) self,
+            in(reg) &coord
+        );
+        result
     }
 }

@@ -73,6 +73,7 @@ pub(crate) mod sealed;
 pub mod storage_class;
 mod textures;
 pub mod vector;
+#[cfg(feature = "const-generics")]
 pub mod image;
 
 pub use num_traits;

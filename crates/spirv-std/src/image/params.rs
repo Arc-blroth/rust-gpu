@@ -1,3 +1,5 @@
+use crate::{scalar::Scalar, vector::Vector};
+
 /// The access permissions for the image.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum AccessQualifier {
@@ -39,15 +41,14 @@ pub enum Dimensionality {
 
 /// Marker trait for arguments that accept single scalar values or vectors
 /// of scalars.
-pub trait ImageCoordinate<const DIM: Dimensionality>: crate::sealed::Sealed {}
+pub trait ImageCoordinate<T, const DIM: Dimensionality> {}
 
-impl ImageCoordinate<{ Dimensionality::OneD }> for f32 {}
-impl ImageCoordinate<{ Dimensionality::TwoD }> for glam::Vec2 {}
-impl ImageCoordinate<{ Dimensionality::ThreeD }> for glam::Vec3 {}
-impl ImageCoordinate<{ Dimensionality::ThreeD }> for glam::Vec3A {}
-impl ImageCoordinate<{ Dimensionality::Rect }> for glam::Vec2 {}
-impl ImageCoordinate<{ Dimensionality::Cube }> for glam::Vec2 {}
-impl ImageCoordinate<{ Dimensionality::Buffer }> for f32 {}
+impl<S: Scalar> ImageCoordinate<S, { Dimensionality::OneD }> for S {}
+impl<S: Scalar> ImageCoordinate<S, { Dimensionality::Buffer }> for S {}
+impl<V: Vector<S, 2>, S: Scalar> ImageCoordinate<S, { Dimensionality::TwoD }> for V {}
+impl<V: Vector<S, 2>, S: Scalar> ImageCoordinate<S, { Dimensionality::Rect }> for V {}
+impl<V: Vector<S, 2>, S: Scalar> ImageCoordinate<S, { Dimensionality::Cube }> for V {}
+impl<V: Vector<S, 3>, S: Scalar> ImageCoordinate<S, { Dimensionality::ThreeD }> for V {}
 
 /// Whether a given image contains [depth] information. **Note** Whether or not
 /// to perform depth comparisons is a property of the sampling code, not of this
