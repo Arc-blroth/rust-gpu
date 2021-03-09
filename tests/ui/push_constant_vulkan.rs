@@ -4,7 +4,7 @@
 // (`#[spirv(block)]` here) on `struct ShaderConstants`.
 
 // build-pass
-// compile-flags: -Ctarget-feature=+vulkan
+// compile-flags: -Ctarget-feature=+target_env=vulkan1.2
 #![no_std]
 #![feature(register_attr)]
 #![register_attr(spirv)]

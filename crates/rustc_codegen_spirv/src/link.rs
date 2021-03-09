@@ -22,12 +22,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tar::{Archive, Builder, Header};
 
+use crate::target_features::TargetFeatures;
+
 pub fn link<'a>(
     sess: &'a Session,
     codegen_results: &CodegenResults,
     outputs: &OutputFilenames,
     crate_name: &str,
-    legalize: bool,
 ) {
     let output_metadata = sess.opts.output_types.contains_key(&OutputType::Metadata);
     for &crate_type in sess.crate_types().iter() {
@@ -61,7 +62,7 @@ pub fn link<'a>(
                     link_rlib(sess, codegen_results, &out_filename);
                 }
                 CrateType::Executable | CrateType::Cdylib | CrateType::Dylib => {
-                    link_exe(sess, crate_type, &out_filename, codegen_results, legalize)
+                    link_exe(sess, crate_type, &out_filename, codegen_results)
                 }
                 other => sess.err(&format!("CrateType {:?} not supported yet", other)),
             }
@@ -103,8 +104,8 @@ fn link_exe(
     crate_type: CrateType,
     out_filename: &Path,
     codegen_results: &CodegenResults,
-    legalize: bool,
 ) {
+    let target_features = TargetFeatures::from_session(sess);
     let mut objects = Vec::new();
     let mut rlibs = Vec::new();
     for obj in codegen_results
@@ -122,7 +123,7 @@ fn link_exe(
         codegen_results,
     );
 
-    let spv_binary = do_link(sess, &objects, &rlibs, legalize);
+    let spv_binary = do_link(sess, &objects, &rlibs, !target_features.kernel_mode);
 
     if let Ok(ref path) = std::env::var("DUMP_POST_LINK") {
         File::create(path)
@@ -140,7 +141,7 @@ fn link_exe(
     };
 
     if env::var("NO_SPIRV_VAL").is_err() {
-        do_spirv_val(sess, &spv_binary, out_filename);
+        do_spirv_val(sess, &spv_binary, out_filename, target_features);
     }
 
     {
@@ -215,10 +216,15 @@ fn do_spirv_opt(sess: &Session, spv_binary: Vec<u32>, filename: &Path) -> Vec<u3
     }
 }
 
-fn do_spirv_val(sess: &Session, spv_binary: &[u32], filename: &Path) {
+fn do_spirv_val(
+    sess: &Session,
+    spv_binary: &[u32],
+    filename: &Path,
+    target_features: TargetFeatures,
+) {
     use spirv_tools::val::{self, Validator};
 
-    let validator = val::create(None);
+    let validator = val::create(target_features.target_env);
 
     if let Err(e) = validator.validate(spv_binary, None) {
         let mut err = sess.struct_err(&e.to_string());

@@ -10,8 +10,9 @@ use crate::decorations::{
 };
 use crate::spirv_type::{SpirvType, SpirvTypePrinter, TypeCache};
 use crate::symbols::Symbols;
+use crate::target_features::TargetFeatures;
 use rspirv::dr::{Module, Operand};
-use rspirv::spirv::{AddressingModel, Decoration, LinkageType, MemoryModel, StorageClass, Word};
+use rspirv::spirv::{AddressingModel, Decoration, LinkageType, StorageClass, Word};
 use rustc_codegen_ssa::mir::debuginfo::{FunctionDebugContext, VariableKind};
 use rustc_codegen_ssa::traits::{
     AsmMethods, BackendTypes, CoverageInfoMethods, DebugInfoMethods, MiscMethods,
@@ -74,34 +75,13 @@ pub struct CodegenCx<'tcx> {
 impl<'tcx> CodegenCx<'tcx> {
     pub fn new(tcx: TyCtxt<'tcx>, codegen_unit: &'tcx CodegenUnit<'tcx>) -> Self {
         let sym = Symbols::get();
-        let mut spirv_version = None;
-        let mut memory_model = None;
-        let mut kernel_mode = false;
-        for &feature in &tcx.sess.target_features {
-            if feature == sym.kernel {
-                kernel_mode = true;
-            } else if feature == sym.spirv10 {
-                spirv_version = Some((1, 0));
-            } else if feature == sym.spirv11 {
-                spirv_version = Some((1, 1));
-            } else if feature == sym.spirv12 {
-                spirv_version = Some((1, 2));
-            } else if feature == sym.spirv13 {
-                spirv_version = Some((1, 3));
-            } else if feature == sym.spirv14 {
-                spirv_version = Some((1, 4));
-            } else if feature == sym.spirv15 {
-                spirv_version = Some((1, 5));
-            } else if feature == sym.simple {
-                memory_model = Some(MemoryModel::Simple);
-            } else if feature == sym.vulkan {
-                memory_model = Some(MemoryModel::Vulkan);
-            } else if feature == sym.glsl450 {
-                memory_model = Some(MemoryModel::GLSL450);
-            } else {
-                tcx.sess.err(&format!("Unknown feature {}", feature));
-            }
-        }
+        let TargetFeatures {
+            spirv_version,
+            memory_model,
+            kernel_mode,
+            ..
+        } = TargetFeatures::from_session(tcx.sess);
+
         Self {
             tcx,
             codegen_unit,
