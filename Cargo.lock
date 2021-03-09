@@ -1005,7 +1005,7 @@ dependencies = [
 [[package]]
 name = "glam"
 version = "0.13.0"
-source = "git+https://github.com/EmbarkStudios/glam-rs.git?branch=spirv-std-impl#20d7aa0e5aaa9400337080d25eea86c08184b8d8"
+source = "git+https://github.com/EmbarkStudios/glam-rs.git?branch=spirv-std-impl#f40dbe988832ca6f29ccd4ff2afae8289b945d63"
 dependencies = [
  "num-traits",
  "spirv-std",
