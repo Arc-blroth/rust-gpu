@@ -13,6 +13,5 @@ const POINTER: Unique<[u8;4]> = Unique::<[u8; 4]>::dangling();
 
 #[spirv(fragment)]
 pub fn main(mut output: Output<u8>) {
-    let pointer = POINTER;
-    drop(pointer);
+    let _pointer = POINTER;
 }

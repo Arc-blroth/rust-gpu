@@ -96,6 +96,7 @@ fn rust_flags(codegen_backend_path: &Path) -> String {
         &*format!("-Zcodegen-backend={}", codegen_backend_path.display()),
         "-Coverflow-checks=off",
         "-Cdebug-assertions=off",
+        "-Cdebuginfo=2",
     ].join(" ")
 }
 
