@@ -212,7 +212,19 @@ impl<'tcx> CodegenCx<'tcx> {
                 Decoration::Location,
                 std::iter::once(Operand::LiteralInt32(*location)),
             );
-            *location += 1;
+            // Arrays take up multiple locations
+            *location += if let SpirvType::Pointer { pointee, ..} = self.lookup_type(spirv_type) {
+                if let SpirvType::Array { count, .. }  = self.lookup_type(pointee) {
+                    self.builder.lookup_const_u64(count).expect("Array type has invalid count value") as u32
+                } else {
+                    1
+                }
+            } else {
+                self.tcx.sess.span_fatal(
+                    hir_param.span,
+                    &format!("invalid entry param type `{}`", spirv_type),
+                );
+            };
         }
         (variable, storage_class)
     }
