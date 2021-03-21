@@ -1,5 +1,5 @@
 use rspirv::dr::{Instruction, Module, Operand};
-use rspirv::spirv::{Capability, Op, ExecutionModel, Dim};
+use rspirv::spirv::{Capability, Dim, ExecutionModel, Op};
 use std::collections::HashSet;
 
 pub fn remove_extra_capabilities(module: &mut Module) {
@@ -67,26 +67,23 @@ pub fn add_required_capabilities(module: &mut Module) {
         .capabilities
         .drain(..)
         .filter(|inst| inst.class.opcode == Op::Capability)
-        .map(|inst|
-            inst.operands[0].unwrap_capability())
+        .map(|inst| inst.operands[0].unwrap_capability())
         .collect();
 
     module
         .all_inst_iter()
-        .for_each(|inst| {
-            match inst.class.opcode {
-                Op::EntryPoint => {
-                    if inst.operands[0].unwrap_execution_model() == ExecutionModel::Geometry {
-                        required_capabilities.insert(Capability::Geometry);
-                    }
+        .for_each(|inst| match inst.class.opcode {
+            Op::EntryPoint => {
+                if inst.operands[0].unwrap_execution_model() == ExecutionModel::Geometry {
+                    required_capabilities.insert(Capability::Geometry);
                 }
-                Op::TypeImage => {
-                    if inst.operands[1].unwrap_dim() == Dim::DimSubpassData {
-                        required_capabilities.insert(Capability::InputAttachment);
-                    }
-                }
-                _ => {}
             }
+            Op::TypeImage => {
+                if inst.operands[1].unwrap_dim() == Dim::DimSubpassData {
+                    required_capabilities.insert(Capability::InputAttachment);
+                }
+            }
+            _ => {}
         });
 
     for capability in required_capabilities {
