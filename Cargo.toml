@@ -11,6 +11,9 @@ members = [
     "crates/rustc_codegen_spirv",
     "crates/spirv-builder",
     "crates/spirv-std",
+
+    "tests",
+    "tests/deps-helper",
 ]
 
 # Compile build-dependencies in release mode with
@@ -18,3 +21,12 @@ members = [
 [profile.release.build-override]
 opt-level = 3
 codegen-units = 16
+
+[patch.crates-io]
+spirv-std = { path = "./crates/spirv-std" }
+spirv-std-macros = { path = "./crates/spirv-std-macros" }
+glam = { git = "https://github.com/bitshifter/glam-rs.git", rev ="b3e94fb" }
+# TODO: Remove once next version is released - needed to include these two PRs:
+# * Manishearth/compiletest-rs#240 (for handling SPIR-V extension across platforms)
+# * Manishearth/compiletest-rs#241 (for the `$TEST_BUILD_DIR` path normalization)
+compiletest_rs = { git = "https://github.com/Manishearth/compiletest-rs.git", rev = "9257f6d" }
