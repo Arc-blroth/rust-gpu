@@ -212,12 +212,12 @@ pub fn link(sess: &Session, mut inputs: Vec<Module>, opts: &Options) -> Result<L
                             .insert(inst.result_id.unwrap(), inst.operands[1].unwrap_id_ref());
                     }
                     Op::TypeInt
-                        if inst.operands[0].unwrap_literal_int32() == 32
-                            && inst.operands[1].unwrap_literal_int32() == 0 =>
-                    {
-                        assert!(u32.is_none());
-                        u32 = Some(inst.result_id.unwrap());
-                    }
+                    if inst.operands[0].unwrap_literal_int32() == 32
+                        && inst.operands[1].unwrap_literal_int32() == 0 =>
+                        {
+                            assert!(u32.is_none());
+                            u32 = Some(inst.result_id.unwrap());
+                        }
                     Op::Constant if u32.is_some() && inst.result_type == u32 => {
                         let value = inst.operands[0].unwrap_literal_int32();
                         constants.insert(inst.result_id.unwrap(), value);
@@ -288,14 +288,14 @@ pub fn link(sess: &Session, mut inputs: Vec<Module>, opts: &Options) -> Result<L
         }
 
         {
-        let _timer = sess.timer("link_add_required_capabilities");
-        capability_computation::add_required_capabilities(&mut output);
-    }
+            let _timer = sess.timer("link_add_required_capabilities");
+            capability_computation::add_required_capabilities(output);
+        }
 
-    if opts.compact_ids {
-        let _timer = sess.timer("link_compact_ids");
-        // compact the ids https://github.com/KhronosGroup/SPIRV-Tools/blob/e02f178a716b0c3c803ce31b9df4088596537872/source/opt/compact_ids_pass.cpp#L43
-        output.header.as_mut().unwrap().bound = simple_passes::compact_ids(output);
+        if opts.compact_ids {
+            let _timer = sess.timer("link_compact_ids");
+            // compact the ids https://github.com/KhronosGroup/SPIRV-Tools/blob/e02f178a716b0c3c803ce31b9df4088596537872/source/opt/compact_ids_pass.cpp#L43
+            output.header.as_mut().unwrap().bound = simple_passes::compact_ids(output);
         };
     }
 

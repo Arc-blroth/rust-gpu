@@ -330,6 +330,15 @@ impl<'tcx> CodegenCx<'tcx> {
             }
         }
 
+        // Emit the `OpVariable` with its *Result* ID set to `variable`.
+        let var_spirv_type_pointee = self.layout_of(value_ty).spirv_type(hir_param.span, self);
+        let var_spirv_type = SpirvType::Pointer {
+            pointee: var_spirv_type_pointee,
+        }
+        .def(hir_param.span, self);
+        self.emit_global()
+            .variable(var_spirv_type, Some(variable), storage_class, None);
+
         // FIXME(eddyb) check whether the storage class is compatible with the
         // specific shader stage of this entry-point, and any decorations
         // (e.g. Vulkan has specific rules for builtin storage classes).
@@ -353,29 +362,14 @@ impl<'tcx> CodegenCx<'tcx> {
                 std::iter::once(Operand::LiteralInt32(*location)),
             );
             // Arrays take up multiple locations
-            *location += if let SpirvType::Pointer { pointee, .. } = self.lookup_type(spirv_type) {
-                if let SpirvType::Array { count, .. } = self.lookup_type(pointee) {
-                    self.builder
-                        .lookup_const_u64(count)
-                        .expect("Array type has invalid count value") as u32
-                } else {
-                    1
-                }
+            *location += if let SpirvType::Array { count, .. } = self.lookup_type(var_spirv_type_pointee) {
+                self.builder
+                    .lookup_const_u64(count)
+                    .expect("Array type has invalid count value") as u32
             } else {
-                self.tcx.sess.span_fatal(
-                    hir_param.span,
-                    &format!("invalid entry param type `{}`", spirv_type),
-                );
-            };
+                1
+            }
         }
-
-        // Emit the `OpVariable` with its *Result* ID set to `variable`.
-        let var_spirv_type = SpirvType::Pointer {
-            pointee: self.layout_of(value_ty).spirv_type(hir_param.span, self),
-        }
-        .def(hir_param.span, self);
-        self.emit_global()
-            .variable(var_spirv_type, Some(variable), storage_class, None);
 
         (variable, storage_class)
     }
