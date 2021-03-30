@@ -45,9 +45,9 @@ When declaring inputs and outputs, sometimes you want to declare it as a "builti
 Example:
 
 ```rust
-#[spirv(fragment)]
+#[spirv(vertex)]
 fn main(
-    #[spirv(position)] mut out_pos: Output<Vec4>,
+    #[spirv(position)] out_pos: &mut Vec4,
 ) { }
 ```
 
@@ -62,7 +62,7 @@ Example:
 ```rust
 #[spirv(fragment)]
 fn main(
-    #[spirv(descriptor_set = 2, binding = 5)] mut var: Uniform<Vec4>,
+    #[spirv(uniform, descriptor_set = 2, binding = 5)] var: &mut Vec4,
 ) { }
 ```
 
@@ -83,7 +83,7 @@ struct Thing {
 }
 
 #[spirv(fragment)]
-fn main(obj: PushConstant<ShaderConstants>) { }
+fn main(#[spirv(push_constant)] obj: &ShaderConstants) { }
 ```
 
 ## Flat
@@ -94,5 +94,16 @@ Example:
 
 ```rust
 #[spirv(fragment)]
-fn main(#[spirv(flat)] obj: Input<u32>) { }
+fn main(#[spirv(flat)] obj: u32) { }
+```
+
+## Invariant
+
+The invariant attribute corresponds to the invariant keyword in glsl. It can only be applied to output variables.
+
+Example:
+
+```rust
+#[spirv(vertex)]
+fn main(#[spirv(invariant)] var: &mut f32) { }
 ```

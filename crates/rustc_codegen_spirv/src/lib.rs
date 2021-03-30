@@ -17,7 +17,7 @@
 //! [`spirv-tools-sys`]: https://embarkstudios.github.io/rust-gpu/api/spirv_tools_sys
 #![feature(rustc_private)]
 #![feature(once_cell)]
-// BEGIN - Embark standard lints v0.2.
+// BEGIN - Embark standard lints v0.3
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 #![deny(unsafe_code)]
@@ -36,13 +36,16 @@
     clippy::if_let_mutex,
     clippy::imprecise_flops,
     clippy::inefficient_to_string,
+    clippy::large_types_passed_by_value,
     clippy::let_unit_value,
     clippy::linkedlist,
     clippy::lossy_float_literal,
     clippy::macro_use_imports,
+    clippy::map_err_ignore,
     clippy::map_flatten,
     clippy::map_unwrap_or,
     clippy::match_on_vec_items,
+    clippy::match_same_arms,
     clippy::match_wildcard_for_single_variants,
     clippy::mem_forget,
     clippy::mismatched_target_os,
@@ -52,9 +55,12 @@
     clippy::pub_enum_variant_names,
     clippy::ref_option_ref,
     clippy::rest_pat_in_fully_bound_structs,
+    clippy::string_add_assign,
+    clippy::string_add,
     clippy::string_to_string,
     clippy::suboptimal_flops,
     clippy::todo,
+    clippy::unimplemented,
     clippy::unnested_or_patterns,
     clippy::unused_self,
     clippy::verbose_file_reads,
@@ -62,7 +68,7 @@
     nonstandard_style,
     rust_2018_idioms
 )]
-// END - Embark standard lints v0.2
+// END - Embark standard lints v0.3
 // crate-specific exceptions:
 #![allow(
     unsafe_code,                // still quite a bit of unsafe
@@ -112,7 +118,7 @@ mod spirv_type_constraints;
 mod symbols;
 
 use builder::Builder;
-use codegen_cx::CodegenCx;
+use codegen_cx::{CodegenArgs, CodegenCx, ModuleOutputType};
 pub use rspirv;
 use rspirv::binary::Assemble;
 use rustc_ast::expand::allocator::AllocatorKind;
@@ -205,7 +211,7 @@ fn is_blocklisted_fn<'tcx>(
     false
 }
 
-fn target_options() -> Target {
+fn target_options(env: Option<spirv_tools::TargetEnv>) -> Target {
     Target {
         llvm_target: "no-llvm".to_string(),
         pointer_width: 32,
@@ -222,6 +228,10 @@ fn target_options() -> Target {
             linker_flavor: LinkerFlavor::Ld,
             panic_strategy: PanicStrategy::Abort,
             os: "unknown".to_string(),
+            env: env
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "unknown".to_string()),
             // TODO: Investigate if main_needs_argc_argv is useful (for building exes)
             main_needs_argc_argv: false,
             ..Default::default()
@@ -284,12 +294,20 @@ impl CodegenBackend for SpirvCodegenBackend {
 
     fn target_override(&self, opts: &config::Options) -> Option<Target> {
         match opts.target_triple {
-            TargetTriple::TargetTriple(ref target_triple) => match &**target_triple {
-                // TODO: Do we want to match *everything* here, since, well, we only support one thing? that will allow
-                // folks to not specify --target spirv-unknown-unknown on the commandline.
-                "spirv-unknown-unknown" => Some(target_options()),
-                _ => None,
-            },
+            TargetTriple::TargetTriple(ref target_triple) => {
+                const ARCH_VENDOR: &str = "spirv-unknown-";
+                if !target_triple.starts_with(ARCH_VENDOR) {
+                    return None;
+                }
+
+                let env = &target_triple[ARCH_VENDOR.len()..];
+
+                match env.parse() {
+                    Ok(env) => Some(target_options(Some(env))),
+                    Err(_) if env == "unknown" => Some(target_options(None)),
+                    Err(_) => None,
+                }
+            }
             TargetTriple::TargetPath(_) => None,
         }
     }
@@ -374,6 +392,8 @@ impl CodegenBackend for SpirvCodegenBackend {
     ) -> Result<(), ErrorReported> {
         // TODO: Can we merge this sym with the one in symbols.rs?
         let legalize = !sess.target_features.contains(&Symbol::intern("kernel"));
+        let codegen_args = CodegenArgs::from_session(sess);
+        let emit_multiple_modules = codegen_args.module_output_type == ModuleOutputType::Multiple;
 
         let timer = sess.timer("link_crate");
         link::link(
@@ -382,6 +402,7 @@ impl CodegenBackend for SpirvCodegenBackend {
             outputs,
             &codegen_results.crate_name.as_str(),
             legalize,
+            emit_multiple_modules,
         );
         drop(timer);
 
@@ -630,18 +651,4 @@ pub fn __rustc_codegen_backend() -> Box<dyn CodegenBackend> {
     }));
 
     Box::new(SpirvCodegenBackend)
-}
-
-// HACK(eddyb) this allows `spirv-builder` to use `spirv-tools::val` without
-// risking linker errors (especially when compiled with optimizations) - this
-// also means the function can't be generic or `#[inline]`.
-pub use spirv_tools::TargetEnv as SpirvToolsTargetEnv;
-#[inline(never)]
-pub fn spirv_tools_validate(
-    target_env: Option<spirv_tools::TargetEnv>,
-    bytes: &[u8],
-    options: Option<spirv_tools::val::ValidatorOptions>,
-) -> Result<(), spirv_tools::error::Error> {
-    use spirv_tools::val::Validator as _;
-    spirv_tools::val::create(target_env).validate(spirv_tools::binary::to_binary(bytes)?, options)
 }

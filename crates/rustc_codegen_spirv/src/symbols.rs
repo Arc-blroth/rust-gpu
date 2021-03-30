@@ -153,7 +153,6 @@ const BUILTINS: &[(&str, BuiltIn)] = {
 
 const STORAGE_CLASSES: &[(&str, StorageClass)] = {
     use StorageClass::*;
-    // make sure these strings stay synced with spirv-std's pointer types
     &[
         ("uniform_constant", UniformConstant),
         ("input", Input),
@@ -337,6 +336,7 @@ impl Symbols {
             ),
             ("block", SpirvAttribute::Block),
             ("flat", SpirvAttribute::Flat),
+            ("invariant", SpirvAttribute::Invariant),
             (
                 "sampled_image",
                 SpirvAttribute::IntrinsicType(IntrinsicType::SampledImage),

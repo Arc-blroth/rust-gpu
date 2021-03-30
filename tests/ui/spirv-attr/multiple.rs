@@ -5,18 +5,19 @@
 
 use spirv_std as _;
 
-#[spirv(uniform, uniform)]
-struct _SameStorageClass {}
-
-#[spirv(uniform, push_constant)]
-struct _DiffStorageClass {}
-
 #[spirv(sampler, sampler)]
 struct _SameIntrinsicType {}
 
 #[spirv(
     sampler,
-    image_type(dim = "Dim2D", depth = 0, arrayed = 0, multisampled = 0, sampled = 1, image_format = "Unknown"),
+    image_type(
+        dim = "Dim2D",
+        depth = 0,
+        arrayed = 0,
+        multisampled = 0,
+        sampled = 1,
+        image_format = "Unknown"
+    )
 )]
 struct _DiffIntrinsicType {}
 
@@ -31,6 +32,9 @@ fn _diff_entry() {}
 
 #[spirv(vertex)]
 fn _entry(
+    #[spirv(uniform, uniform)] _same_storage_class: (),
+    #[spirv(uniform, push_constant)] _diff_storage_class: (),
+
     #[spirv(position, position)] _same_builtin: (),
     #[spirv(position, vertex_index)] _diff_builtin: (),
 
@@ -41,7 +45,10 @@ fn _entry(
     #[spirv(binding = 0, binding = 1)] _diff_binding: (),
 
     #[spirv(flat, flat)] _flat: (),
-) {}
+
+    #[spirv(invariant, invariant)] _invariant: (),
+) {
+}
 
 #[spirv(unroll_loops, unroll_loops)]
 fn _unroll_loops() {}

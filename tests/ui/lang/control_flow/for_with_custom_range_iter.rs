@@ -6,8 +6,8 @@
 
 // build-pass
 
-use spirv_std::{num_traits::Num, storage_class::Input};
 use core::ops::Range;
+use spirv_std::num_traits::Num;
 
 struct RangeIter<T>(Range<T>);
 
@@ -25,8 +25,6 @@ impl<T: Num + Ord + Copy> Iterator for RangeIter<T> {
 }
 
 #[spirv(fragment)]
-pub fn main(i: Input<i32>) {
-    for _ in RangeIter(0..*i) {
-    }
+pub fn main(i: i32) {
+    for _ in RangeIter(0..i) {}
 }
-

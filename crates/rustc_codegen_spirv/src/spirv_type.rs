@@ -188,6 +188,17 @@ impl SpirvType {
             }
             Self::RuntimeArray { element } => {
                 let result = cx.emit_global().type_runtime_array(element);
+                // ArrayStride decoration wants in *bytes*
+                let element_size = cx
+                    .lookup_type(element)
+                    .sizeof(cx)
+                    .expect("Element of sized array must be sized")
+                    .bytes();
+                cx.emit_global().decorate(
+                    result,
+                    Decoration::ArrayStride,
+                    iter::once(Operand::LiteralInt32(element_size as u32)),
+                );
                 if cx.kernel_mode {
                     cx.zombie_with_span(result, def_span, "RuntimeArray in kernel mode");
                 }
@@ -312,8 +323,7 @@ impl SpirvType {
             | Self::Function { .. } => return None,
 
             Self::Bool => Size::from_bytes(1),
-            Self::Integer(width, _) => Size::from_bits(width),
-            Self::Float(width) => Size::from_bits(width),
+            Self::Integer(width, _) | Self::Float(width) => Size::from_bits(width),
             Self::Adt { size, .. } => size?,
             Self::Vector { element, count } => {
                 cx.lookup_type(element).sizeof(cx)? * count.next_power_of_two() as u64
@@ -322,9 +332,7 @@ impl SpirvType {
                 cx.lookup_type(element).sizeof(cx)? * cx.builder.lookup_const_u64(count).unwrap()
             }
             Self::Pointer { .. } => cx.tcx.data_layout.pointer_size,
-            Self::Image { .. } => Size::from_bytes(4),
-            Self::Sampler => Size::from_bytes(4),
-            Self::SampledImage { .. } => Size::from_bytes(4),
+            Self::Image { .. } | Self::Sampler | Self::SampledImage { .. } => Size::from_bytes(4),
         };
         Some(result)
     }
@@ -337,8 +345,7 @@ impl SpirvType {
             }
 
             Self::Bool => Align::from_bytes(1).unwrap(),
-            Self::Integer(width, _) => Align::from_bits(width as u64).unwrap(),
-            Self::Float(width) => Align::from_bits(width as u64).unwrap(),
+            Self::Integer(width, _) | Self::Float(width) => Align::from_bits(width as u64).unwrap(),
             Self::Adt { align, .. } => align,
             // Vectors have size==align
             Self::Vector { .. } => Align::from_bytes(
@@ -347,12 +354,13 @@ impl SpirvType {
                     .bytes(),
             )
             .expect("alignof: Vectors must have power-of-2 size"),
-            Self::Array { element, .. } => cx.lookup_type(element).alignof(cx),
-            Self::RuntimeArray { element } => cx.lookup_type(element).alignof(cx),
+            Self::Array { element, .. } | Self::RuntimeArray { element } => {
+                cx.lookup_type(element).alignof(cx)
+            }
             Self::Pointer { .. } => cx.tcx.data_layout.pointer_align.abi,
-            Self::Image { .. } => Align::from_bytes(4).unwrap(),
-            Self::Sampler => Align::from_bytes(4).unwrap(),
-            Self::SampledImage { .. } => Align::from_bytes(4).unwrap(),
+            Self::Image { .. } | Self::Sampler | Self::SampledImage { .. } => {
+                Align::from_bytes(4).unwrap()
+            }
         }
     }
 }

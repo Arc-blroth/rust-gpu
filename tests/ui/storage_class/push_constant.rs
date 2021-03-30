@@ -1,14 +1,10 @@
 // Test that using push constants work.
-// NOTE(eddyb) this won't pass Vulkan validation (see `push_constant_vulkan`),
-// but should still pass the baseline SPIR-V validation.
-
 // build-pass
-
-extern crate spirv_std;
-use spirv_std::storage_class::PushConstant;
-
+use spirv_std as _;
 
 #[derive(Copy, Clone)]
+// `Block` decoration is required for push constants when compiling for Vulkan.
+#[cfg_attr(not(target_env = "unknown"), spirv(block))]
 pub struct ShaderConstants {
     pub width: u32,
     pub height: u32,
@@ -16,6 +12,6 @@ pub struct ShaderConstants {
 }
 
 #[spirv(fragment)]
-pub fn main(constants: PushConstant<ShaderConstants>) {
+pub fn main(#[spirv(push_constant)] constants: &ShaderConstants) {
     let _constants = *constants;
 }
